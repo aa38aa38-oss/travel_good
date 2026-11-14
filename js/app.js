@@ -5,7 +5,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var byId = {}; SPOTS.forEach(function (s) { byId[s.id] = s; });
 
-  var DAY_COLOR = ['#9E9E9E', '#E53935', '#1E88E5', '#43A047', '#8E24AA', '#8E24AA', '#FB8C00', '#00897B', '#111111'];
+  var DAY_COLOR = ['#9E9E9E', '#E53935', '#1E88E5', '#43A047', '#8E24AA', '#8E24AA', '#FB8C00', '#00897B', '#111111', '#6D4C41'];
   var AREAS = window.AREAS || [];
   var CAT = { sight: '📸', food: '🍜', shop: '🛍', stay: '🏨', move: '🚉', city: '📰' };
   var TRIP_START = new Date(2027, 0, 10);
@@ -34,7 +34,8 @@
   }
   var ALSO = { 5: { teine: 1, highland: 1, skimeet: 1 }, 6: { jigoku: 1 }, 1: { sato: 1 } };   // 跨日重複出現的點
   function inDay(s, d) { return s.d === d || !!(ALSO[d] && ALSO[d][s.id]) || !!(s.dd && s.dd.indexOf(d) >= 0); }
-  function dayLabel(s) { return s.c === 'city' ? '專題・' + s.area : s.d ? 'Day ' + s.d : '口袋名單'; }
+  function dayLabel(s) { return s.c === 'city' ? '專題・' + s.area : s.d === 9 ? '加碼・' + s.area : s.d ? 'Day ' + s.d : '口袋名單'; }
+  function gUrl(q) { return 'https://www.google.com/search?q=' + encodeURIComponent(q); }
 
   /* ══════════ 地圖 ══════════ */
   var map, layers = {}, curLayer = 'street', markers = {}, meMarker, meCircle, myPos = null, follow = false, filter = 'all';
@@ -65,7 +66,7 @@
   function renderChips() {
     var t = todayDay(), items = [['all', '全部']];
     for (var d = 1; d <= 7; d++) items.push([String(d), (d === t ? '今天・' : '') + 'Day ' + d]);
-    items.push(['0', '口袋名單']);
+    items.push(['0', '口袋名單']); items.push(['9', '加碼景點']);
     $('dayChips').innerHTML = items.map(function (i) {
       return '<button class="chip' + (i[0] === filter ? ' on' : '') + '" data-f="' + i[0] + '">' + i[1] + '</button>';
     }).join('');
@@ -75,7 +76,7 @@
     var pts = [];
     SPOTS.forEach(function (s) {
       if (!markers[s.id]) return;
-      var show = f === 'all' ? true : s.c === 'city' ? (f !== '0' && inDay(s, Number(f))) : inDay(s, Number(f));
+      var show = f === 'all' ? true : s.c === 'city' ? (f !== '0' && f !== '9' && inDay(s, Number(f))) : inDay(s, Number(f));
       if (show) { markers[s.id].addTo(map); if (s.c !== 'city' || s.r) pts.push(s.ll); } else { map.removeLayer(markers[s.id]); }
     });
     if (fit && pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: 15 });
@@ -233,7 +234,8 @@
       h += '<div class="rel"><h4>延伸爆料</h4>' + s.rel.filter(function (r) { return byId[r]; }).map(function (r) { return '<button data-open="' + r + '">' + CAT[byId[r].c] + ' ' + esc(byId[r].n) + '</button>'; }).join('') + '</div>';
     }
     if (s.c !== 'city') h += '<div class="navrow"><a class="go" href="' + esc(navUrl(s)) + '" target="_blank" rel="noopener">🧭 用 Google Maps 導航</a>' +
-      '<button id="showOnMap">🗺 在地圖上看</button></div>';
+      '<button id="showOnMap">🗺 在地圖上看</button>' +
+      '<a class="g" href="' + esc(gUrl((s.jp || s.n).replace(/[（(].*$/, ''))) + '" target="_blank" rel="noopener">🔎 Google 搜尋</a></div>';
     $('sheetBody').innerHTML = h; $('sheetBody').scrollTop = 0;
     $('sheet').hidden = false;
     if ($('showOnMap')) $('showOnMap').onclick = function () { closeSheet(); switchTab('map'); follow = false; $('btnLocate').classList.remove('on');
@@ -266,6 +268,12 @@
     });
     h += '<div class="day"><div class="day-h" style="background:' + DAY_COLOR[0] + '"><b>口袋名單</b><small>沒排進行程，路過一樣爆料</small></div><div class="day-b">' +
       SPOTS.filter(function (s) { return s.d === 0; }).map(itemHtml).join('') + '</div></div>';
+    h += '<div class="day"><div class="day-h" style="background:' + DAY_COLOR[9] + '"><b>加碼景點</b><small>行程之外，同城市的經典去處</small></div><div class="day-b">';
+    AREAS.forEach(function (a) {
+      var list = SPOTS.filter(function (s) { return s.d === 9 && s.area === a; });
+      if (list.length) h += '<div class="day-sub" style="margin-top:10px">' + esc(a) + '</div>' + list.map(itemHtml).join('');
+    });
+    h += '</div></div>';
     var sc = $('planList'), top = sc.scrollTop; sc.innerHTML = h; sc.scrollTop = top;
   }
 
@@ -320,14 +328,15 @@
   function renderAnswers(q) {
     var res = search(q), box = $('askResults'), h = '';
     if (!res.length) {
-      h = '<div class="ans"><span class="tag">本台致歉</span><h3>這條線報本台還沒挖到！</h3><p>爆料台只查得到這趟行程的景點、餐廳、交通和注意事項。換個關鍵字試試，例如店名、地名，或點上面的熱門問題。</p></div>';
+      h = '<div class="ans"><span class="tag">本台致歉</span><h3>這條線報本台還沒挖到！</h3><p>爆料台只查得到這趟行程的景點、餐廳、交通和注意事項。換個關鍵字試試，例如店名、地名，或直接交給 Google。</p></div>';
     } else res.forEach(function (r, i) {
       var d = r.d, title, body, say, acts = '<button data-say-i="' + i + '">🔊 唸給我聽</button>';
       if (d.type === 'faq') { title = d.f.q; body = d.f.a; if (d.f.go && byId[d.f.go]) acts += '<button data-open="' + d.f.go + '">📍 ' + esc(byId[d.f.go].n) + '</button>'; }
-      else { title = d.s.n + '（' + dayLabel(d.s) + '）'; body = d.s.h + ' ' + d.s.s.slice(0, 2).map(function (g) { return g[1]; }).join(' ') + (d.s.i ? ' 營業資訊：' + d.s.i + '。' : '') + (d.s.w ? ' 注意：' + d.s.w : ''); acts += '<button data-open="' + d.s.id + '">📰 看完整爆料</button>'; }
+      else { title = d.s.n + '（' + dayLabel(d.s) + '）'; body = d.s.h + ' ' + d.s.s.slice(0, 2).map(function (g) { return g[1]; }).join(' ') + (d.s.i ? ' 營業資訊：' + d.s.i + '。' : '') + (d.s.w ? ' 注意：' + d.s.w : ''); acts += '<button data-open="' + d.s.id + '">📰 看完整爆料</button>'; if (d.s.c !== 'city') acts += '<a class="g" href="' + esc(gUrl(d.s.jp || d.s.n)) + '" target="_blank" rel="noopener">🔎 Google</a>'; }
       say = title + '。' + body;
       h += '<div class="ans"><span class="tag">' + (i === 0 ? '頭條線報' : '相關線報') + '</span><h3>' + esc(title) + '</h3><p class="seg" data-ans="' + esc(say) + '">' + esc(body) + '</p><div class="acts">' + acts + '</div></div>';
     });
+    if (String(q).trim()) h += '<div class="gbar"><a href="' + esc(gUrl(String(q).trim() + ' 北海道')) + '" target="_blank" rel="noopener">🔎 用 Google 搜尋「' + esc(String(q).trim()) + '」</a></div>';
     box.innerHTML = h;
   }
   function renderAskChips() {

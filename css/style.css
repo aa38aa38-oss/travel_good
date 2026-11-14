@@ -138,6 +138,10 @@ main{flex:1;position:relative;min-height:0}
 .navrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
 .navrow a,.navrow button{flex:1;text-align:center;text-decoration:none;color:var(--ink);border:2px solid var(--ink);border-radius:10px;padding:12px 8px;font-weight:700;background:#fff;min-width:130px}
 .navrow a.go{background:#1a73e8;color:#fff}
+.navrow a.g,.ans a.g{background:#fff}
+.ans a.g{display:inline-block;text-decoration:none;color:var(--ink);border:2px solid var(--ink);border-radius:10px;padding:6px 12px;font-size:.88rem;font-weight:700}
+.gbar{margin:12px 0}
+.gbar a{display:block;text-align:center;text-decoration:none;color:var(--ink);border:3px solid var(--ink);border-radius:12px;padding:12px;font-weight:800;background:#fff;box-shadow:3px 3px 0 var(--ink)}
 
 /* 彈窗 */
 .modal{position:fixed;inset:0;z-index:3000;background:rgba(17,17,17,.72);display:flex;align-items:center;justify-content:center;padding:18px}
