@@ -5,8 +5,9 @@
   var $ = function (id) { return document.getElementById(id); };
   var byId = {}; SPOTS.forEach(function (s) { byId[s.id] = s; });
 
-  var DAY_COLOR = ['#9E9E9E', '#E53935', '#1E88E5', '#43A047', '#8E24AA', '#8E24AA', '#FB8C00', '#00897B'];
-  var CAT = { sight: '📸', food: '🍜', shop: '🛍', stay: '🏨', move: '🚉' };
+  var DAY_COLOR = ['#9E9E9E', '#E53935', '#1E88E5', '#43A047', '#8E24AA', '#8E24AA', '#FB8C00', '#00897B', '#111111'];
+  var AREAS = window.AREAS || [];
+  var CAT = { sight: '📸', food: '🍜', shop: '🛍', stay: '🏨', move: '🚉', city: '📰' };
   var TRIP_START = new Date(2027, 0, 10);
 
   /* ── 本機儲存 ── */
@@ -32,8 +33,8 @@
     return d >= 1 && d <= 7 ? d : 0;
   }
   var ALSO = { 5: { teine: 1, highland: 1, skimeet: 1 }, 6: { jigoku: 1 }, 1: { sato: 1 } };   // 跨日重複出現的點
-  function inDay(s, d) { return s.d === d || !!(ALSO[d] && ALSO[d][s.id]); }
-  function dayLabel(s) { return s.d ? 'Day ' + s.d : '口袋名單'; }
+  function inDay(s, d) { return s.d === d || !!(ALSO[d] && ALSO[d][s.id]) || !!(s.dd && s.dd.indexOf(d) >= 0); }
+  function dayLabel(s) { return s.c === 'city' ? '專題・' + s.area : s.d ? 'Day ' + s.d : '口袋名單'; }
 
   /* ══════════ 地圖 ══════════ */
   var map, layers = {}, curLayer = 'street', markers = {}, meMarker, meCircle, myPos = null, follow = false, filter = 'all';
@@ -46,7 +47,8 @@
       maxZoom: 19, crossOrigin: true, attribution: 'Imagery © Esri' });
     layers.street.addTo(map);
     SPOTS.forEach(function (s) {
-      var m = L.marker(s.ll, { icon: pinIcon(s), title: s.n });
+      if (s.nomap) return;
+      var m = L.marker(s.ll, { icon: pinIcon(s), title: s.n, zIndexOffset: s.c === 'city' ? -500 : 0 });
       m.on('click', function () { openSheet(s.id); });
       markers[s.id] = m;
     });
@@ -56,9 +58,9 @@
   }
   function pinIcon(s) {
     return L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 30],
-      html: '<div class="pin' + (heard[s.id] ? ' heard' : '') + '" style="background:' + DAY_COLOR[s.d] + '"><i>' + CAT[s.c] + '</i></div>' });
+      html: '<div class="pin' + (s.c === 'city' ? ' city' : '') + (heard[s.id] ? ' heard' : '') + '" style="background:' + DAY_COLOR[s.d] + '"><i>' + CAT[s.c] + '</i></div>' });
   }
-  function refreshPin(id) { if (markers[id]) markers[id].setIcon(pinIcon(byId[id])); }
+  function refreshPin(id) { if (markers[id] && byId[id]) markers[id].setIcon(pinIcon(byId[id])); }
 
   function renderChips() {
     var t = todayDay(), items = [['all', '全部']];
@@ -72,8 +74,9 @@
     filter = f; renderChips();
     var pts = [];
     SPOTS.forEach(function (s) {
-      var show = f === 'all' || inDay(s, Number(f));
-      if (show) { markers[s.id].addTo(map); pts.push(s.ll); } else { map.removeLayer(markers[s.id]); }
+      if (!markers[s.id]) return;
+      var show = f === 'all' ? true : s.c === 'city' ? (f !== '0' && inDay(s, Number(f))) : inDay(s, Number(f));
+      if (show) { markers[s.id].addTo(map); if (s.c !== 'city' || s.r) pts.push(s.ll); } else { map.removeLayer(markers[s.id]); }
     });
     if (fit && pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: 15 });
   }
@@ -103,14 +106,17 @@
     if (follow || (first && !sim)) { follow = true; $('btnLocate').classList.add('on'); map.setView(myPos, Math.max(map.getZoom(), 15)); }
     gps((sim ? '測試位置' : '定位中') + '・誤差約 ' + Math.round(acc) + ' 公尺', 'ok');
 
-    var near = SPOTS.map(function (s) { return { s: s, m: dist(myPos, s.ll) }; }).sort(function (a, b) { return a.m - b.m; });
+    var near = SPOTS.filter(function (s) { return !s.nomap; }).map(function (s) { return { s: s, m: dist(myPos, s.ll) }; }).sort(function (a, b) { return a.m - b.m; });
     var nb = $('nearBar');
-    if (near[0] && near[0].m < 3000) { nb.hidden = false; nb.textContent = '最近：' + near[0].s.n + '・' + fmtDist(near[0].m); nb.dataset.id = near[0].s.id; }
+    var n0 = near.filter(function (x) { return x.s.c !== 'city'; })[0];
+    if (n0 && n0.m < 3000) { nb.hidden = false; nb.textContent = '最近：' + n0.s.n + '・' + fmtDist(n0.m); nb.dataset.id = n0.s.id; }
     else nb.hidden = true;
     if ($('tab-plan').classList.contains('active')) renderPlan();
 
     if (!prefs.alert || acc > 200) return;
     var hits = near.filter(function (x) { return x.s.r > 0 && x.m <= x.s.r && !notified[x.s.id]; });
+    var spotHits = hits.filter(function (x) { return x.s.c !== 'city'; });   // 景點優先，城市專題等沒有景點時才跳
+    if (spotHits.length) hits = spotHits;
     if (hits.length && $('alert').hidden && $('sheet').hidden) showAlert(hits);
   }
 
@@ -120,7 +126,7 @@
     var s = hits[0].s; alertId = s.id;
     hits.forEach(function (h) { notified[h.s.id] = 1; });
     store.set('notified', notified);
-    $('alertTitle').textContent = '你已進入「' + s.n + '」爆料範圍';
+    $('alertTitle').textContent = s.c === 'city' ? '城市專題：' + s.n : '你已進入「' + s.n + '」爆料範圍';
     $('alertHead').textContent = s.h;
     $('alertMore').textContent = hits.length > 1 ? '附近還有：' + hits.slice(1, 4).map(function (h) { return h.s.n; }).join('、') : '';
     $('alert').hidden = false;
@@ -212,22 +218,25 @@
     var m = s.h.match(/^【(.+?)】(.*)$/), tag = m ? m[1] : '爆料', head = m ? m[2] : s.h;
     var h = '<div class="badges"><span class="badge" style="background:' + DAY_COLOR[s.d] + ';color:#fff">' + dayLabel(s) + '</span>' +
       (s.t ? '<span class="badge">' + esc(s.t) + '</span>' : '') +
-      (myPos ? '<span class="badge">距離 ' + fmtDist(dist(myPos, s.ll)) + '</span>' : '') + '</div>' +
+      (myPos && !s.nomap && s.c !== 'city' ? '<span class="badge">距離 ' + fmtDist(dist(myPos, s.ll)) + '</span>' : '') + '</div>' +
       '<h2 class="headline" data-say="' + esc(tag + '。' + head) + '"><mark>' + esc(tag) + '</mark>' + esc(head) + '</h2>' +
       '<div class="names">' + CAT[s.c] + ' ' + esc(s.n) + (s.jp ? '・' + esc(s.jp) : '') + '</div>' +
       (s.w ? '<div class="warn seg-say" data-say="' + esc('注意。' + s.w) + '">⚠️ ' + esc(s.w) + '</div>' : '') +
       (s.i ? '<div class="info">🕒 ' + esc(s.i) + '</div>' : '');
     s.s.forEach(function (g) {
-      h += '<div class="seg" data-say="' + esc(g[0] + '。' + g[1]) + '"><span class="cue">👀 ' + esc(g[0]) + '</span><p>' + esc(g[1]) + '</p></div>';
+      h += '<div class="seg" data-say="' + esc(g[0] + '。' + g[1]) + '"><span class="cue">' + (s.c === 'city' ? '📌 ' : '👀 ') + esc(g[0]) + '</span><p>' + esc(g[1]) + '</p></div>';
     });
     if (s.tip && s.tip.length) {
       h += '<ul class="tips seg" data-say="' + esc('最後幾條線報。' + s.tip.join(' ')) + '">' + s.tip.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>';
     }
-    h += '<div class="navrow"><a class="go" href="' + esc(navUrl(s)) + '" target="_blank" rel="noopener">🧭 用 Google Maps 導航</a>' +
+    if (s.rel && s.rel.length) {
+      h += '<div class="rel"><h4>延伸爆料</h4>' + s.rel.filter(function (r) { return byId[r]; }).map(function (r) { return '<button data-open="' + r + '">' + CAT[byId[r].c] + ' ' + esc(byId[r].n) + '</button>'; }).join('') + '</div>';
+    }
+    if (s.c !== 'city') h += '<div class="navrow"><a class="go" href="' + esc(navUrl(s)) + '" target="_blank" rel="noopener">🧭 用 Google Maps 導航</a>' +
       '<button id="showOnMap">🗺 在地圖上看</button></div>';
     $('sheetBody').innerHTML = h; $('sheetBody').scrollTop = 0;
     $('sheet').hidden = false;
-    $('showOnMap').onclick = function () { closeSheet(); switchTab('map'); follow = false; $('btnLocate').classList.remove('on');
+    if ($('showOnMap')) $('showOnMap').onclick = function () { closeSheet(); switchTab('map'); follow = false; $('btnLocate').classList.remove('on');
       if (!map.hasLayer(markers[id])) applyFilter('all'); map.setView(s.ll, 17); };
     if (autoplay) playSheet();
   }
@@ -235,7 +244,7 @@
     var els = $('sheetBody').querySelectorAll('[data-say]'), items = [];
     els.forEach(function (e) { items.push({ text: e.getAttribute('data-say'), el: e.classList.contains('seg') ? e : null }); });
     var id = sheetId;
-    speakQueue(items, function () { heard[id] = 1; store.set('heard', heard); refreshPin(id); });
+    speakQueue(items, function () { heard[id] = 1; store.set('heard', heard); refreshPin(id); if ($('tab-topic').classList.contains('active')) renderTopics(); });
   }
   function closeSheet() { stopSpeak(); $('sheet').hidden = true; sheetId = null; }
 
@@ -258,6 +267,20 @@
     h += '<div class="day"><div class="day-h" style="background:' + DAY_COLOR[0] + '"><b>口袋名單</b><small>沒排進行程，路過一樣爆料</small></div><div class="day-b">' +
       SPOTS.filter(function (s) { return s.d === 0; }).map(itemHtml).join('') + '</div></div>';
     var sc = $('planList'), top = sc.scrollTop; sc.innerHTML = h; sc.scrollTop = top;
+  }
+
+  /* ══════════ 專題 ══════════ */
+  function renderTopics() {
+    var h = '<p class="none" style="margin-top:0">每座城市的地理、歷史、人文、經濟內幕。搭車、排隊、泡完湯的時候聽。</p>';
+    AREAS.forEach(function (a) {
+      var list = SPOTS.filter(function (s) { return s.c === 'city' && s.area === a; });
+      if (!list.length) return;
+      h += '<div class="topic-h">' + esc(a) + '</div>';
+      list.forEach(function (s) {
+        h += '<button class="topic' + (heard[s.id] ? ' heard' : '') + '" data-open="' + s.id + '"><b>' + esc(s.n) + '</b><small>' + esc(s.h) + '</small></button>';
+      });
+    });
+    var sc = $('topicList'), top = sc.scrollTop; sc.innerHTML = h; sc.scrollTop = top;
   }
 
   /* ══════════ 爆料台（關鍵字搜尋，非 AI） ══════════ */
@@ -308,7 +331,7 @@
     box.innerHTML = h;
   }
   function renderAskChips() {
-    var hot = ['登別怎麼去', '哪些要訂位', '哪天休館', '螃蟹哪裡吃', '湯咖哩', '夜景比較', '滑雪集合', '伴手禮', '霜淇淋路線', '有多冷', '緊急電話', '黃金神威'];
+    var hot = ['登別怎麼去', '哪些要訂位', '哪天休館', '螃蟹哪裡吃', '湯咖哩', '夜景比較', '滑雪集合', '伴手禮', '霜淇淋路線', '有多冷', '緊急電話', '黃金神威', '地址怎麼看', '便利商店', '溫泉泉質', '愛努', '大谷翔平', '小樽為什麼沒落'];
     $('askChips').innerHTML = hot.map(function (t) { return '<button class="chip" data-q="' + t + '">' + t + '</button>'; }).join('');
   }
 
@@ -330,6 +353,7 @@
     document.querySelectorAll('.tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === name); });
     if (name === 'map' && map) setTimeout(function () { map.invalidateSize(); }, 50);
     if (name === 'plan') renderPlan();
+    if (name === 'topic') renderTopics();
   }
   var wakeLock = null;
   function wake() {

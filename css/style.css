@@ -123,6 +123,16 @@ main{flex:1;position:relative;min-height:0}
 .seg .cue{display:inline-block;font-weight:900;background:var(--ink);color:var(--yellow);padding:0 8px;border-radius:4px;margin-bottom:4px;font-size:.9rem}
 .seg p{margin:0;font-size:1.05rem}
 .seg.now{background:#FFF7A8;border-left-color:var(--red)}
+.rel{margin-top:16px}
+.rel h4{margin:0 0 6px;font-size:.95rem}
+.rel button{display:block;width:100%;text-align:left;margin-bottom:6px;font-weight:600;padding:8px 12px}
+.topic-h{font-weight:900;font-size:1.1rem;background:var(--ink);color:var(--yellow);display:inline-block;padding:2px 12px;margin:14px 0 8px;transform:rotate(-1deg)}
+.topic{display:block;width:100%;text-align:left;border:3px solid var(--ink);border-radius:12px;background:#fff;padding:10px 12px;margin-bottom:10px;box-shadow:3px 3px 0 var(--ink);font-weight:500}
+.topic b{display:block;font-size:1rem}
+.topic small{color:var(--mute);display:block;line-height:1.4;margin-top:2px}
+.topic.heard b::after{content:" ✓";color:#1a7a3c}
+.pin.city{border-radius:50%;transform:none;background:var(--yellow)!important;width:34px;height:34px}
+.pin.city i{transform:none;font-size:17px}
 .tips{margin:14px 0;padding:10px 12px 10px 30px;background:#fff;border:2px dashed var(--ink);border-radius:10px;font-size:.95rem}
 .tips li{margin-bottom:4px}
 .navrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
