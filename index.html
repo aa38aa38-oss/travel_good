@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>北海道最強導遊</title>
+<meta name="description" content="走到哪爆料到哪：2027/1/10–1/16 北海道行程的定位語音導覽">
+<meta name="theme-color" content="#D7121F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="最強導遊">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="live">獨家</span>
+    <h1>北海道最強導遊</h1>
+  </div>
+  <button id="btnSettings" class="iconbtn" aria-label="設定">⚙</button>
+</header>
+
+<main>
+  <!-- 地圖 -->
+  <section id="tab-map" class="tab active">
+    <div id="map"></div>
+    <div class="chips" id="dayChips"></div>
+    <div class="mapbtns">
+      <button id="btnLayer" class="fab" aria-label="切換衛星圖">🛰</button>
+      <button id="btnLocate" class="fab" aria-label="回到我的位置">📍</button>
+    </div>
+    <div id="gpsStatus" class="gps">尚未開始定位</div>
+    <button id="nearBar" class="nearbar" hidden></button>
+  </section>
+
+  <!-- 行程 -->
+  <section id="tab-plan" class="tab">
+    <div class="scroll" id="planList"></div>
+  </section>
+
+  <!-- 爆料台（搜尋） -->
+  <section id="tab-ask" class="tab">
+    <div class="scroll">
+      <form id="askForm" class="askbar">
+        <input id="askInput" type="search" placeholder="問本台：登別怎麼去？螃蟹哪裡吃？" autocomplete="off" enterkeyhint="search">
+        <button type="submit">爆料</button>
+      </form>
+      <div class="chips wrap" id="askChips"></div>
+      <div id="askResults"></div>
+    </div>
+  </section>
+
+  <!-- 待辦 -->
+  <section id="tab-todo" class="tab">
+    <div class="scroll" id="todoList"></div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-tab="map" class="on"><span>🗺</span>地圖</button>
+  <button data-tab="plan"><span>📅</span>行程</button>
+  <button data-tab="ask"><span>🎤</span>爆料台</button>
+  <button data-tab="todo"><span>✅</span>待辦</button>
+</nav>
+
+<!-- 到點通知 -->
+<div id="alert" class="alert" hidden>
+  <div class="alert-tag">📸 獨家直擊</div>
+  <div class="alert-title" id="alertTitle"></div>
+  <div class="alert-head" id="alertHead"></div>
+  <div class="alert-more" id="alertMore"></div>
+  <div class="alert-btns">
+    <button id="alertPlay" class="primary">▶ 播放爆料</button>
+    <button id="alertRead">看文字</button>
+    <button id="alertSkip">略過</button>
+  </div>
+</div>
+
+<!-- 景點卡 -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-bar">
+    <button id="sheetClose" class="iconbtn dark" aria-label="關閉">✕</button>
+    <div class="player">
+      <button id="playBtn" class="primary">▶ 播放</button>
+      <button id="stopBtn">■ 停止</button>
+      <label class="rate">語速 <select id="rateSel">
+        <option value="0.85">慢</option><option value="1" selected>正常</option><option value="1.2">快</option><option value="1.4">很快</option>
+      </select></label>
+    </div>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
+<!-- 設定 -->
+<div id="settings" class="modal" hidden>
+  <div class="modal-box">
+    <h2>設定</h2>
+    <label class="row"><input type="checkbox" id="optAlert" checked> 到點跳通知</label>
+    <label class="row"><input type="checkbox" id="optSound" checked> 通知提示音（Android 另有震動）</label>
+    <label class="row"><input type="checkbox" id="optWake" checked> 保持螢幕恆亮（導覽必須開著畫面）</label>
+    <label class="row"><input type="checkbox" id="optSim"> 測試模式：點地圖模擬我的位置</label>
+    <button id="btnResetHeard">重設「已通知／已聽過」紀錄</button>
+    <button id="btnTestVoice">試聽語音</button>
+    <p class="note">本網頁不使用任何付費服務。定位只在你的手機上運算，不會上傳。<br>
+    手機鎖屏或切到別的 App 時無法跳通知，請保持本頁在前景。<br>
+    票價與營業時間為整理當下資料，請以官方公告為準。</p>
+    <button id="settingsClose" class="primary">完成</button>
+  </div>
+</div>
+
+<!-- 開場 -->
+<div id="intro" class="modal">
+  <div class="modal-box intro">
+    <div class="live big">獨家</div>
+    <h2>北海道最強導遊</h2>
+    <p class="sub">2027/1/10–1/16・走到哪，爆料到哪</p>
+    <ul>
+      <li>📍 走進景點範圍，自動跳出爆料通知</li>
+      <li>🔊 按「播放」聽語音，邊聽邊找現場重點</li>
+      <li>🎤 爆料台可以直接問問題</li>
+    </ul>
+    <button id="btnStart" class="primary xl">開始導覽（開啟定位）</button>
+    <button id="btnBrowse" class="ghost">先不定位，隨便看看</button>
+    <p class="note">第一次請允許「位置」權限。導覽時請保持本頁開著。</p>
+  </div>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/data-a.js"></script>
+<script src="js/data-b.js"></script>
+<script src="js/data-c.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

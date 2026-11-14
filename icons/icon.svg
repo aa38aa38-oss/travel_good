@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#D7121F"/>
+  <g transform="rotate(-6 256 256)">
+    <rect x="96" y="92" width="320" height="84" fill="#FFE600" stroke="#111" stroke-width="10"/>
+    <text x="256" y="155" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="64" fill="#111">獨家</text>
+  </g>
+  <path d="M256 210c-58 0-104 45-104 101 0 74 104 150 104 150s104-76 104-150c0-56-46-101-104-101z" fill="#fff" stroke="#111" stroke-width="12"/>
+  <circle cx="256" cy="312" r="40" fill="#111"/>
+</svg>
