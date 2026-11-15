@@ -328,7 +328,7 @@
   function renderAnswers(q) {
     var res = search(q), box = $('askResults'), h = '';
     if (!res.length) {
-      h = '<div class="ans"><span class="tag">本台致歉</span><h3>這條線報本台還沒挖到！</h3><p>爆料台只查得到這趟行程的景點、餐廳、交通和注意事項。換個關鍵字試試，例如店名、地名，或直接交給 Google。</p></div>';
+      h = '<div class="ans"><span class="tag">本台致歉</span><h3>這條線報本台還沒挖到！</h3><p>爆料台只查得到這趟行程的景點、餐廳、交通和注意事項。換個關鍵字試試，例如店名、地名，或按上面的「Google」直接查。</p></div>';
     } else res.forEach(function (r, i) {
       var d = r.d, title, body, say, acts = '<button data-say-i="' + i + '">🔊 唸給我聽</button>';
       if (d.type === 'faq') { title = d.f.q; body = d.f.a; if (d.f.go && byId[d.f.go]) acts += '<button data-open="' + d.f.go + '">📍 ' + esc(byId[d.f.go].n) + '</button>'; }
@@ -336,7 +336,6 @@
       say = title + '。' + body;
       h += '<div class="ans"><span class="tag">' + (i === 0 ? '頭條線報' : '相關線報') + '</span><h3>' + esc(title) + '</h3><p class="seg" data-ans="' + esc(say) + '">' + esc(body) + '</p><div class="acts">' + acts + '</div></div>';
     });
-    if (String(q).trim()) h += '<div class="gbar"><a href="' + esc(gUrl(String(q).trim() + ' 北海道')) + '" target="_blank" rel="noopener">🔎 用 Google 搜尋「' + esc(String(q).trim()) + '」</a></div>';
     box.innerHTML = h;
   }
   function renderAskChips() {
@@ -409,6 +408,12 @@
       if (s) { var p = s.closest('.ans').querySelector('[data-ans]'); speakQueue([{ text: p.getAttribute('data-ans'), el: p }]); }
     });
     $('askForm').addEventListener('submit', function (e) { e.preventDefault(); stopSpeak(); renderAnswers($('askInput').value); $('askInput').blur(); });
+
+    $('askGoogle').onclick = function () {
+      var q = $('askInput').value.trim();
+      if (!q) { $('askInput').focus(); return; }
+      window.open(gUrl(q + ' 北海道'), '_blank', 'noopener');
+    };
 
     $('todoList').addEventListener('change', function (e) {
       var k = e.target.dataset.todo; if (!k) return;
