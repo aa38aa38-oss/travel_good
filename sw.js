@@ -1,7 +1,7 @@
 /* 離線快取：App 本體與導覽內容預先快取；地圖圖磚看過的才快取 */
-var VERSION = 'v4';
+var VERSION = 'v5';
 var SHELL = 'guide-shell-' + VERSION, TILES = 'guide-tiles';
-var FILES = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/data-a.js', 'js/data-b.js', 'js/data-c.js', 'js/data-d.js', 'js/data-e.js',
+var FILES = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/data-a.js', 'js/data-b.js', 'js/data-c.js', 'js/data-d.js', 'js/data-e.js', 'js/data-f.js',
   'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', function (e) {

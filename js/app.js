@@ -5,7 +5,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var byId = {}; SPOTS.forEach(function (s) { byId[s.id] = s; });
 
-  var DAY_COLOR = ['#9E9E9E', '#E53935', '#1E88E5', '#43A047', '#8E24AA', '#8E24AA', '#FB8C00', '#00897B', '#111111', '#6D4C41'];
+  var DAY_COLOR = ['#9E9E9E', '#E53935', '#1E88E5', '#43A047', '#8E24AA', '#8E24AA', '#FB8C00', '#00897B', '#111111', '#6D4C41', '#37474F'];
   var AREAS = window.AREAS || [];
   var CAT = { sight: '📸', food: '🍜', shop: '🛍', stay: '🏨', move: '🚉', city: '📰' };
   var TRIP_START = new Date(2027, 0, 10);
@@ -34,7 +34,7 @@
   }
   var ALSO = { 5: { teine: 1, highland: 1, skimeet: 1 }, 6: { jigoku: 1 }, 1: { sato: 1 } };   // 跨日重複出現的點
   function inDay(s, d) { return s.d === d || !!(ALSO[d] && ALSO[d][s.id]) || !!(s.dd && s.dd.indexOf(d) >= 0); }
-  function dayLabel(s) { return s.c === 'city' ? '專題・' + s.area : s.d === 9 ? '加碼・' + s.area : s.d ? 'Day ' + s.d : '口袋名單'; }
+  function dayLabel(s) { return s.c === 'city' ? '專題・' + s.area : s.d === 9 ? '加碼・' + s.area : s.d === 10 ? '各地・' + s.area : s.d ? 'Day ' + s.d : '口袋名單'; }
   function gUrl(q) { return 'https://www.google.com/search?q=' + encodeURIComponent(q); }
 
   /* ══════════ 地圖 ══════════ */
@@ -66,7 +66,7 @@
   function renderChips() {
     var t = todayDay(), items = [['all', '全部']];
     for (var d = 1; d <= 7; d++) items.push([String(d), (d === t ? '今天・' : '') + 'Day ' + d]);
-    items.push(['0', '口袋名單']); items.push(['9', '加碼景點']);
+    items.push(['0', '口袋名單']); items.push(['9', '加碼景點']); items.push(['10', '北海道各地']);
     $('dayChips').innerHTML = items.map(function (i) {
       return '<button class="chip' + (i[0] === filter ? ' on' : '') + '" data-f="' + i[0] + '">' + i[1] + '</button>';
     }).join('');
@@ -77,7 +77,7 @@
     SPOTS.forEach(function (s) {
       if (!markers[s.id]) return;
       var show = f === 'all' ? true : s.c === 'city' ? (f !== '0' && f !== '9' && inDay(s, Number(f))) : inDay(s, Number(f));
-      if (show) { markers[s.id].addTo(map); if (s.c !== 'city' || s.r) pts.push(s.ll); } else { map.removeLayer(markers[s.id]); }
+      if (show) { markers[s.id].addTo(map); if ((s.c !== 'city' || s.r) && !(f === 'all' && s.d === 10)) pts.push(s.ll); } else { map.removeLayer(markers[s.id]); }
     });
     if (fit && pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: 15 });
   }
@@ -268,12 +268,14 @@
     });
     h += '<div class="day"><div class="day-h" style="background:' + DAY_COLOR[0] + '"><b>口袋名單</b><small>沒排進行程，路過一樣爆料</small></div><div class="day-b">' +
       SPOTS.filter(function (s) { return s.d === 0; }).map(itemHtml).join('') + '</div></div>';
-    h += '<div class="day"><div class="day-h" style="background:' + DAY_COLOR[9] + '"><b>加碼景點</b><small>行程之外，同城市的經典去處</small></div><div class="day-b">';
-    AREAS.forEach(function (a) {
-      var list = SPOTS.filter(function (s) { return s.d === 9 && s.area === a; });
-      if (list.length) h += '<div class="day-sub" style="margin-top:10px">' + esc(a) + '</div>' + list.map(itemHtml).join('');
+    [[9, '加碼景點', '行程之外，同城市與定山溪的經典去處'], [10, '北海道各地', '有空多留幾天再去：道央、道北、函館、道東']].forEach(function (g) {
+      h += '<div class="day"><div class="day-h" style="background:' + DAY_COLOR[g[0]] + '"><b>' + g[1] + '</b><small>' + g[2] + '</small></div><div class="day-b">';
+      AREAS.forEach(function (a) {
+        var list = SPOTS.filter(function (s) { return s.d === g[0] && s.area === a; });
+        if (list.length) h += '<div class="day-sub" style="margin-top:10px">' + esc(a) + '</div>' + list.map(itemHtml).join('');
+      });
+      h += '</div></div>';
     });
-    h += '</div></div>';
     var sc = $('planList'), top = sc.scrollTop; sc.innerHTML = h; sc.scrollTop = top;
   }
 
@@ -339,7 +341,7 @@
     box.innerHTML = h;
   }
   function renderAskChips() {
-    var hot = ['登別怎麼去', '哪些要訂位', '哪天休館', '螃蟹哪裡吃', '湯咖哩', '夜景比較', '滑雪集合', '伴手禮', '霜淇淋路線', '有多冷', '緊急電話', '黃金神威', '地址怎麼看', '便利商店', '溫泉泉質', '愛努', '大谷翔平', '小樽為什麼沒落'];
+    var hot = ['登別怎麼去', '哪些要訂位', '哪天休館', '螃蟹哪裡吃', '湯咖哩', '夜景比較', '滑雪集合', '伴手禮', '霜淇淋路線', '有多冷', '緊急電話', '黃金神威', '地址怎麼看', '便利商店', '溫泉泉質', '愛努', '大谷翔平', '小樽為什麼沒落', '定山溪怎麼去', '一月有什麼祭典'];
     $('askChips').innerHTML = hot.map(function (t) { return '<button class="chip" data-q="' + t + '">' + t + '</button>'; }).join('');
   }
 
