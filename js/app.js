@@ -379,6 +379,110 @@
     $('rateSel').value = String(prefs.rate);
   }
 
+  /* ══════════ 地圖搜尋（本 App 景點＋OpenStreetMap 免費地名搜尋） ══════════ */
+  var foundMarker = null, geoSeq = 0, lastGeo = 0, typeT = null;
+  function mNorm(t) { return String(t || '').toLowerCase().replace(/[\s・·,，、。()（）「」]/g, ''); }
+  function localPlaces(q) {
+    var nq = mNorm(q); if (!nq) return [];
+    var terms = String(q).toLowerCase().split(/\s+/).map(mNorm).filter(Boolean);
+    var out = [];
+    SPOTS.forEach(function (s) {
+      if (s.nomap) return;
+      var name = mNorm(s.n + (s.jp || '')), hay = name + mNorm((s.q || '') + (s.k || '') + (s.area || ''));
+      if (!terms.every(function (t) { return hay.indexOf(t) >= 0; })) return;
+      var sc = name.indexOf(nq) === 0 ? 3 : name.indexOf(nq) >= 0 ? 2 : 1;
+      if (s.c === 'city') sc -= 0.5;
+      out.push({ s: s, sc: sc });
+    });
+    out.sort(function (a, b) { return b.sc - a.sc || (myPos ? dist(myPos, a.s.ll) - dist(myPos, b.s.ll) : 0); });
+    return out.slice(0, 8).map(function (x) { return x.s; });
+  }
+  function gmapsUrl(q) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
+  function renderMapResults(q, local, remote, state) {
+    var box = $('mapResults'), h = '';
+    if (local.length) {
+      h += '<div class="mr-h">本 App 景點</div>' + local.map(function (s) {
+        return '<button class="mr" data-mlocal="' + s.id + '"><span class="em">' + CAT[s.c] + '</span><span class="tx"><b>' + esc(s.n) + '</b><small>' + esc(dayLabel(s) + (s.jp ? '・' + s.jp : '')) + '</small></span>' +
+          (myPos ? '<span class="dist">' + fmtDist(dist(myPos, s.ll)) + '</span>' : '') + '</button>';
+      }).join('');
+    }
+    if (state === 'idle') h += '<div class="mr-note">按 🔍 查整張地圖的地點（需網路）</div>';
+    else if (state === 'loading') h += '<div class="mr-note">地圖搜尋中…</div>';
+    else if (state === 'error') h += '<div class="mr-note">地圖搜尋需要網路，現在連不上。可以改用下面的 Google Maps。</div>';
+    else if (state === 'done') {
+      if (remote.length) {
+        h += '<div class="mr-h">地圖上的地點</div>' + remote.map(function (r, i) {
+          return '<button class="mr" data-mremote="' + i + '"><span class="em">📍</span><span class="tx"><b>' + esc(r.name) + '</b><small>' + esc(r.addr) + '</small></span>' +
+            (myPos ? '<span class="dist">' + fmtDist(dist(myPos, r.ll)) + '</span>' : '') + '</button>';
+        }).join('');
+      } else h += '<div class="mr-note">地圖上找不到「' + esc(q) + '」，換個寫法（日文、英文）試試，或用 Google Maps。</div>';
+    }
+    h += '<a class="mr-g" href="' + esc(gmapsUrl(q + ' 北海道')) + '" target="_blank" rel="noopener">🧭 在 Google Maps 搜尋「' + esc(q) + '」</a>';
+    box.innerHTML = h; box.hidden = false; box._remote = remote;
+  }
+  function closeMapResults() { $('mapResults').hidden = true; }
+  function geoSearch(q) {
+    clearTimeout(typeT);
+    var my = ++geoSeq, local = localPlaces(q);
+    renderMapResults(q, local, [], 'loading');
+    var wait = Math.max(0, 1100 - (Date.now() - lastGeo));   // OpenStreetMap 規定每秒最多一次
+    setTimeout(function () {
+      if (my !== geoSeq) return;
+      lastGeo = Date.now();
+      var base = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&countrycodes=jp&accept-language=zh-TW,zh,ja,en&q=' + encodeURIComponent(q);
+      var hk = base + '&viewbox=139.3,45.6,145.9,41.3&bounded=1';
+      var get = function (u) { return fetch(u, { headers: { 'Accept': 'application/json' } }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); };
+      get(hk).then(function (js) {
+        if (js.length) return js;
+        return new Promise(function (ok) { setTimeout(ok, 1100); }).then(function () { lastGeo = Date.now(); return get(base); });
+      }).then(function (js) {
+        if (my !== geoSeq) return;
+        var remote = [];
+        js.forEach(function (r) {
+          var parts = String(r.display_name || '').split(',').map(function (x) { return x.trim(); });
+          var it = { name: r.name || parts[0] || q, addr: parts.slice(1, 5).join('、'), ll: [Number(r.lat), Number(r.lon)] };
+          var dup = remote.some(function (o) { return o.name === it.name && dist(o.ll, it.ll) < 400; });   // 同名且相近的只留一筆
+          if (!dup) remote.push(it);
+        });
+        renderMapResults(q, local, remote, 'done');
+      }).catch(function () { if (my === geoSeq) renderMapResults(q, local, [], 'error'); });
+    }, wait);
+  }
+  function showFound(r) {
+    closeMapResults(); $('mapQ').blur();
+    follow = false; $('btnLocate').classList.remove('on');
+    if (foundMarker) map.removeLayer(foundMarker);
+    foundMarker = L.marker(r.ll, { zIndexOffset: 900, icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 30], html: '<div class="pin found"><i>🔍</i></div>' }) }).addTo(map);
+    foundMarker.bindPopup('<div class="fpop"><b>' + esc(r.name) + '</b><small>' + esc(r.addr) + (myPos ? '<br>距離 ' + fmtDist(dist(myPos, r.ll)) : '') + '</small>' +
+      '<a class="go" href="' + esc(gmapsUrl(r.ll[0].toFixed(6) + ',' + r.ll[1].toFixed(6))) + '" target="_blank" rel="noopener">🧭 Google Maps 導航</a>' +
+      '<a href="' + esc(gUrl(r.name)) + '" target="_blank" rel="noopener">🔎 Google 搜尋</a></div>', { maxWidth: 240, autoPanPaddingTopLeft: L.point(10, 130), autoPanPaddingBottomRight: L.point(10, 70) });
+    map.setView(r.ll, Math.max(map.getZoom(), 16));
+    setTimeout(function () { foundMarker.openPopup(); }, 250);
+  }
+  function bindMapSearch() {
+    var inp = $('mapQ'), clr = $('mapQClear');
+    inp.addEventListener('input', function () {
+      var q = inp.value.trim(); clr.hidden = !q; geoSeq++;
+      clearTimeout(typeT);
+      if (!q) { closeMapResults(); return; }
+      typeT = setTimeout(function () { renderMapResults(q, localPlaces(q), [], 'idle'); }, 120);
+    });
+    inp.addEventListener('focus', function () { var q = inp.value.trim(); if (q && $('mapResults').hidden) renderMapResults(q, localPlaces(q), [], 'idle'); });
+    $('mapSearch').addEventListener('submit', function (e) { e.preventDefault(); var q = inp.value.trim(); if (q) geoSearch(q); });
+    clr.onclick = function () { inp.value = ''; clr.hidden = true; geoSeq++; closeMapResults(); if (foundMarker) { map.removeLayer(foundMarker); foundMarker = null; } inp.focus(); };
+    $('mapResults').addEventListener('click', function (e) {
+      var l = e.target.closest('[data-mlocal]'), r = e.target.closest('[data-mremote]');
+      if (l) {
+        var s = byId[l.dataset.mlocal]; closeMapResults(); inp.blur();
+        follow = false; $('btnLocate').classList.remove('on');
+        if (!map.hasLayer(markers[s.id])) applyFilter('all');
+        map.setView(s.ll, Math.max(map.getZoom(), 16));
+        openSheet(s.id);
+      } else if (r) showFound($('mapResults')._remote[Number(r.dataset.mremote)]);
+    });
+    map.on('click dragstart', closeMapResults);
+  }
+
   function bind() {
     document.querySelector('.tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) switchTab(b.dataset.tab); });
     $('dayChips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (b) { follow = false; $('btnLocate').classList.remove('on'); applyFilter(b.dataset.f, true); } });
@@ -437,10 +541,10 @@
     window.addEventListener('pagehide', function () { if (hasTTS) speechSynthesis.cancel(); });
   }
 
-  initMap(); bind(); renderAskChips(); renderTodo(); syncSettings();
+  initMap(); bind(); bindMapSearch(); renderAskChips(); renderTodo(); syncSettings();
   if (prefs.sim) gps('測試模式：點地圖任一處模擬位置');
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(function () {});
   }
-  window.__guide = { onPos: onPos, search: search, spots: SPOTS };   // 測試用
+  window.__guide = { onPos: onPos, search: search, spots: SPOTS, localPlaces: localPlaces };   // 測試用
 })();

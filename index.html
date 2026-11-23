@@ -28,6 +28,12 @@
   <!-- 地圖 -->
   <section id="tab-map" class="tab active">
     <div id="map"></div>
+    <form id="mapSearch" class="msearch" autocomplete="off">
+      <input id="mapQ" type="search" placeholder="搜尋地點：中文 / English / 日本語" enterkeyhint="search" aria-label="搜尋地點">
+      <button type="button" id="mapQClear" class="mclear" aria-label="清除" hidden>✕</button>
+      <button type="submit" aria-label="搜尋">🔍</button>
+    </form>
+    <div id="mapResults" class="mresults" hidden></div>
     <div class="chips" id="dayChips"></div>
     <div class="mapbtns">
       <button id="btnLayer" class="fab" aria-label="切換衛星圖">🛰</button>
